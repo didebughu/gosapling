@@ -28,7 +28,7 @@ func init() {
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	pointers := []Pointer{}
-	// ast.Print(pass.Fset, pass.Files)
+	ast.Print(pass.Fset, pass.Files)
 	inspect.Preorder(nil, func(n ast.Node) {
 		if genDecl, OK := n.(*ast.GenDecl); OK {
 			for _, decl := range genDecl.Specs {
@@ -36,7 +36,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 					if _, okk := valueSpec.Type.(*ast.StarExpr); okk && valueSpec.Values == nil {
 						for _, name := range valueSpec.Names {
 							pointers = append(pointers,
-								Pointer{name: name.Name, namePos: name.NamePos, isNil: true})
+								Pointer{Name: name.Name, NamePos: name.NamePos, IsNil: true})
 						}
 					}
 				}
@@ -46,8 +46,18 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			lname := getAssignStmtLhsNames(assignStmt)
 			for _, name := range lname {
 				for i := range pointers {
-					if pointers[i].name == name {
-						pointers[i].isNil = false
+					if pointers[i].Name == name {
+						pointers[i].IsNil = false
+					}
+				}
+			}
+			for _, expr := range assignStmt.Rhs {
+				starExpr, ok := expr.(*ast.StarExpr)
+				if ok {
+					for i := range pointers {
+						if pointers[i].Name == starExpr.X.(*ast.Ident).Name && pointers[i].IsNil {
+							fmt.Println(pass.Fset.Position(starExpr.X.(*ast.Ident).Pos()), "(warning) Possible null pointer dereference:", pointers[i].Name)
+						}
 					}
 				}
 			}
@@ -58,15 +68,15 @@ func run(pass *analysis.Pass) (interface{}, error) {
 				starExpr, ok := node.(*ast.StarExpr)
 				if ok {
 					tmp = append(tmp,
-						Pointer{name: starExpr.X.(*ast.Ident).Name, namePos: starExpr.X.(*ast.Ident).Pos(), isNil: true})
+						Pointer{Name: starExpr.X.(*ast.Ident).Name, NamePos: starExpr.X.(*ast.Ident).Pos(), IsNil: true})
 					return false
 				}
 				return true
 			})
 			for i := range tmp {
 				for j := range pointers {
-					if pointers[j].name == tmp[i].name && pointers[j].isNil {
-						fmt.Println(pass.Fset.Position(tmp[i].namePos), "(warning) Possible null pointer dereference: ", pointers[j].name)
+					if pointers[j].Name == tmp[i].Name && pointers[j].IsNil {
+						fmt.Println(pass.Fset.Position(tmp[i].NamePos), "(warning) Possible null pointer dereference:", pointers[j].Name)
 					}
 				}
 			}

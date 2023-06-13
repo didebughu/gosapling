@@ -2,8 +2,13 @@ package pointer
 
 import "go/token"
 
+type Variable struct {
+	Name    string
+	NamePos token.Pos
+}
+
 type Pointer struct {
-	name    string
-	namePos token.Pos
-	isNil   bool
+	Name    string
+	NamePos token.Pos
+	IsNil   bool
 }
